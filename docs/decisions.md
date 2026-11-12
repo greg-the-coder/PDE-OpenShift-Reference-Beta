@@ -23,7 +23,7 @@ dance — none of it air‑gap‑able or repeatable. **Rejected:** GitLab‑on�
 Deployments and their drift. **Rejected:** hand‑rolled vLLM Deployments/MachineSet zoo.
 
 ## D4 — Default model: Qwen2.5‑7B‑Instruct on 1× A10G `g5.2xlarge` ✅
-**Picked:** the model/GPU we actually validated — `Qwen/Qwen2.5‑7B‑Instruct`, 16K ctx,
+**Picked:** the model/GPU we actually validated — `Qwen/Qwen2.5‑7B‑Instruct`, 32K ctx,
 TP‑1, `--tool-call-parser hermes`, on a single A10G. **Why:** cost‑effective default;
 proven to tool‑call correctly. Llama‑3.3‑70B INT4 (TP‑2, L40S/`g6e`) is documented as
 a **scale‑up** (kept at 0 for cost). **Rejected:** Llama‑70B/L40S as the default.

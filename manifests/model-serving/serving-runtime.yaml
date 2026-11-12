@@ -4,8 +4,15 @@
 # the KServe storage-initializer from the InferenceService storageUri; vLLM
 # serves an OpenAI-compatible API on :8080 that Coder's AI Gateway consumes.
 #
-# D4 settings: 16K context, tensor-parallel-size 1 (single A10G), Hermes tool
-# calling (--tool-call-parser hermes + --enable-auto-tool-choice).
+# D4 settings: 32K context (Qwen2.5-7B native max_position_embeddings=32768),
+# tensor-parallel-size 1 (single A10G), Hermes tool calling (--tool-call-parser
+# hermes + --enable-auto-tool-choice).
+#
+# max-model-len note: 16K was too small — agentic coding clients (Coder Agents /
+# Claude Code / Codex) send ~16K+ prompt tokens plus a multi-K completion
+# reservation, overflowing 16384 and returning HTTP 400 on every call
+# ("maximum context length is 16384 tokens..."). 32768 is the model's native
+# ceiling and fits on a 24GB A10G alongside the fp16 weights.
 #
 # NOTE (version/image): `quay.io/modh/vllm` is the Red Hat-built vLLM runtime
 # image; PIN the tag to the installed RHOAI version at P7 (shown here as a
@@ -37,7 +44,7 @@ spec:
         - "--port=8080"
         - "--model=/mnt/models"
         - "--served-model-name=qwen2.5-7b-instruct"
-        - "--max-model-len=16384"
+        - "--max-model-len=32768"
         - "--tensor-parallel-size=1"
         - "--enable-auto-tool-choice"
         - "--tool-call-parser=hermes"

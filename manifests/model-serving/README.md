@@ -9,7 +9,7 @@ namespace (cluster-scoped RHOAI CRs apply cluster-wide).
 | `dsc-initialization.yaml` | `DSCInitialization` — platform services; **ServiceMesh Removed** (RawDeployment, D3). |
 | `datasciencecluster.yaml` | `DataScienceCluster` — **KServe only**, `defaultDeploymentMode: RawDeployment`, Serverless Removed; all other components Removed (D8). |
 | `namespace.yaml` | `rhoai-serving` namespace for the serving workloads. |
-| `serving-runtime.yaml` | vLLM `ServingRuntime` (Qwen2.5-7B): 16K ctx, TP-1, Hermes tool calling (D4). |
+| `serving-runtime.yaml` | vLLM `ServingRuntime` (Qwen2.5-7B): 32K ctx, TP-1, Hermes tool calling (D4). |
 | `inference-service.yaml` | `InferenceService` (RawDeployment) — Qwen2.5-7B on 1× A10G via `hf://` storageUri; GPU request + toleration/nodeSelector. |
 
 The model is OpenAI-compatible; **Coder's AI Gateway** (`gitops/apps/coder.yaml`,
