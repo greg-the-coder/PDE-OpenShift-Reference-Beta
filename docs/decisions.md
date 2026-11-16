@@ -77,6 +77,46 @@ the image or mirrored (see [`air-gap.md`](air-gap.md#known-gaps)).
 **Picked:** `README.md` + `docs/{architecture,deploy,air-gap,decisions}.md`. Anything
 else gets folded in or dropped. **Why:** the prior repo drifted to 33 markdown files.
 
+## D10 — Smart Router in front of the AI Gateway ✅
+**Picked:** the [vLLM Semantic Router](https://github.com/vllm-project/semantic-router)
+(“Smart Router”) in **standalone** gateway mode (`manifests/smart-router/`) as the
+single OpenAI-compatible endpoint Coder's AI Gateway targets, instead of pointing
+the gateway straight at the model predictor. `task ai-provider` registers the
+`openai` provider with `base_url = http://smart-router.smart-router.svc.cluster.local:8899/v1`
+and the default Agents model `vllm-sr/auto`; Agents/Codex traffic flows
+workspace → `…/api/v2/ai-gateway/openai/v1` (**logged** in AI session logs) →
+Smart Router → model. Codex's Responses API (`wire_api = "responses"`) is served
+by the router in-process over the chat-completions backend.
+
+**Why:** routing policy — code vs. chat, local vs. burst, confidential-stays-local,
+image → vision — lives in **one declarative ConfigMap** and can evolve without
+touching Coder or the workspaces, while every request stays captured in the
+gateway's session logs (governance). A small **decision model** (Vela-2.0-0.8B)
+classifies each request against image / tools / confidentiality / task /
+difficulty signals.
+
+**Sovereign base = local-only.** The base config keeps the full signal/decision
+framework but resolves **every** decision to the one in-cluster model (the RHOAI
+Qwen2.5-7B predictor, D4) — no cloud endpoints, no external credentials, so the
+air-gap story stays “local only”. The decision model runs on **CPU**
+(`device: cpu`) so the router needs no GPU and coexists with the single A10G.
+
+**Connected overlay (optional, documented — not deployed in the base):** add
+Bedrock frontier/vision backends (`provider: vllm`, OpenAI-compat Bedrock
+endpoint, ABSK key via ESO in a `bedrock-burst-key` Secret — no static key in
+git, D5) and repoint the `multimodal` / `advanced_reasoning` decisions at them.
+This is the burst-to-cloud tier.
+
+**Perf tune (optional, documented):** move the decision model onto a
+**time-sliced GPU slice** (NVIDIA GPU-operator `time-slicing-config`) — classify
+latency drops from seconds to tens of ms. Not managed in the repo; CPU is the
+single-A10G-deployable default.
+
+**Rejected:** gateway → predictor directly (routing logic would have to live in
+every client / template, and there would be no place to grow burst policy);
+vendoring the upstream Helm chart output (the repo style is concise hand-written
+raw manifests, not generated YAML).
+
 ---
 
 ### Logistics (locked 2026‑11‑02)

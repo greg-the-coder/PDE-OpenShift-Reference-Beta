@@ -1,0 +1,65 @@
+# ServiceAccount + RBAC for the Smart Router (ADR D10).
+#
+# The router reads its config from the mounted ConfigMap but ALSO persists
+# runtime config updates back to that same ConfigMap (VLLM_SR_K8S_CONFIGMAP_*
+# env in deployment.yaml), so it needs get/update/patch on exactly that object.
+#
+# The pod runs as uid/gid 65532 (runAsNonRoot). On OpenShift that requires the
+# `nonroot-v2` SCC, granted here by binding the SA to the matching cluster role.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: smart-router
+  namespace: smart-router
+  labels:
+    app.kubernetes.io/part-of: pde-openshift-reference
+    app.kubernetes.io/name: smart-router
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: smart-router-config-writer
+  namespace: smart-router
+  labels:
+    app.kubernetes.io/part-of: pde-openshift-reference
+    app.kubernetes.io/name: smart-router
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["smart-router-config"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: smart-router-config-writer
+  namespace: smart-router
+  labels:
+    app.kubernetes.io/part-of: pde-openshift-reference
+    app.kubernetes.io/name: smart-router
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: smart-router-config-writer
+subjects:
+  - kind: ServiceAccount
+    name: smart-router
+    namespace: smart-router
+---
+# Grant the `nonroot-v2` SCC (uid/gid 65532, runAsNonRoot) to the SA.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: smart-router-scc-nonroot
+  namespace: smart-router
+  labels:
+    app.kubernetes.io/part-of: pde-openshift-reference
+    app.kubernetes.io/name: smart-router
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:nonroot-v2
+subjects:
+  - kind: ServiceAccount
+    name: smart-router
+    namespace: smart-router

@@ -9,7 +9,7 @@ needs `coder login` as an owner and an active license (AI Gateway is Premium).
 
 | Provider (route `/api/v2/ai-gateway/<name>`) | Backend | Used by | When |
 |---|---|---|---|
-| `openai` | In-cluster RHOAI vLLM, `http://qwen25-7b-predictor.rhoai-serving.svc:8080/v1` (headless Service, so it uses the pod port) | Codex (Responses API) | always |
+| `openai` | **Smart Router** (vLLM Semantic Router), `http://smart-router.smart-router.svc.cluster.local:8899/v1` — classifies + routes to the in-cluster RHOAI predictor (and, in connected mode, bursts) | Codex (Responses API) + Agents | always |
 | `bedrock` | AWS Bedrock (Anthropic), us-east-1. Credentials come from the coder-server pod's IRSA role; no static keys | Claude Code | the coder SA has an IRSA role (`CODER_BEDROCK_ROLE_ARN`, `task coder-irsa`) |
 
 Coder Agents models:
@@ -18,11 +18,11 @@ Coder Agents models:
 |---|---|---|
 | Claude Opus 4.5 (`global.anthropic.claude-opus-4-5-20251101-v1:0`) | `bedrock` | yes, when Bedrock is enabled |
 | Claude Haiku 4.5 (`global.anthropic.claude-haiku-4-5-20251001-v1:0`) | `bedrock` | |
-| Qwen2.5 7B Instruct (`qwen2.5-7b-instruct`) | `openai` | yes, when Bedrock is not enabled (RHOAI-only) |
+| Smart Router — auto (`vllm-sr/auto`) | `openai` | yes, when Bedrock is not enabled (RHOAI-only) |
 
 Overrides (environment variables): `BEDROCK_REGION`, `BEDROCK_MODEL`,
 `BEDROCK_SMALL_FAST_MODEL`, `VLLM_MODEL`, `VLLM_CONTEXT_LIMIT`, and
-`AI_PROVIDER_BASE_URL` (the vLLM base URL, set via the task).
+`AI_PROVIDER_BASE_URL` (the Smart Router base URL, set via the task).
 
 Notes:
 - The gateway rewrites a model id the Bedrock provider doesn't know to the

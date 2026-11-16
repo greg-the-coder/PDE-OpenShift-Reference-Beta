@@ -11,6 +11,11 @@ Everything the demo touches is **in‑cluster**; workspace egress is **default�
 - **Images:** internal OpenShift registry only (redirected via `ImageDigestMirrorSet`).
 - **Model:** RHOAI (in‑cluster vLLM) only — no Bedrock/public LLM; weights served
   from an OCI **ModelCar** in the internal registry (no `hf://` at serve time).
+- **AI routing:** the **Smart Router** (D10) is in‑cluster; its sovereign base
+  resolves every route to the local model (no cloud endpoints). Its container
+  image is mirrored, but its **Vela decision model** weights are HF‑pulled at
+  first start and still need pre‑staging for a true disconnected install (see
+  [Known gaps](#known-gaps)).
 - **Identity + SCM:** Keycloak + in‑cluster Gitea.
 - **Secrets:** generated in‑cluster (ESO generators) — no external store (D5).
 - **TLS:** cert‑manager. NOTE: the committed issuer is public ACME (Route53 dns01);
@@ -81,6 +86,12 @@ Found during the connected acceptance run; none are fixed yet.
 6. **`task airgap-enable` patches the model `storageUri` to `oci://`
    unconditionally.** Run `task mirror` first, or the predictor can't pull the
    ModelCar.
+7. **Smart Router decision model is HF‑pulled.** The Vela decision model
+   downloads from Hugging Face into an `emptyDir` at first start, which the
+   egress‑deny posture blocks. The router image is in the mirror
+   (`mirror/imageset-config.yaml`), but a fully‑disconnected install needs the
+   Vela weights pre‑staged — bake them into the image or serve them from an
+   in‑cluster source and point `HF_HOME` at it.
 
 ## Carry‑over
 `images/mirror-to-internal-registry.sh` (ported from the prior build) is step 1

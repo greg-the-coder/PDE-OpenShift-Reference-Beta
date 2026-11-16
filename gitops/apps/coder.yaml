@@ -143,11 +143,12 @@ spec:
               value: "https://gitea.apps.cluster.rh-pde.coderdemo.io/api/v1/user"
             - name: CODER_EXTERNAL_AUTH_0_REGEX
               value: "gitea\\.apps\\.cluster\\.rh-pde\\.coderdemo\\.io"
-            # ── AI Gateway: in-cluster vLLM (OpenAI-compatible) — P4 ───
+            # ── AI Gateway: Smart Router (OpenAI-compatible) — P4 ──────
             # Coder 2.39 ignores provider env vars (CODER_AI_GATEWAY_OPENAI_*);
             # providers live in the DB. `task ai-provider` registers provider
-            # `openai` -> the RawDeployment predictor (headless Service, so the
-            # pod port :8080 is used directly). Workspaces reach it at
+            # `openai` -> the Smart Router Service
+            # (smart-router.smart-router.svc:8899), which classifies + routes to
+            # the RHOAI predictor. Workspaces reach it at
             # /api/v2/ai-gateway/openai/v1. Requires an active license.
             # Bedrock (Claude Code) is an optional connected-mode provider:
             # `task coder-irsa` annotates the coder SA with its IRSA role and

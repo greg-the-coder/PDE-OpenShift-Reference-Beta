@@ -1,0 +1,177 @@
+# Smart Router Deployment + Service (ADR D10).
+#
+# The vLLM Semantic Router in STANDALONE gateway mode: one OpenAI-compatible
+# listener on :8899 (chat/completions + Responses API) that classifies each
+# request with the on-CPU Vela-2.0-0.8B decision model and forwards it to the
+# model chosen by config.yaml (the `local` RHOAI predictor in the base).
+#
+# CPU-only image (vllm-sr, not vllm-sr-cuda): the decision model runs on CPU
+# (config.yaml global.model_catalog device: cpu) so the router needs no GPU and
+# coexists with the single A10G used by the predictor.
+#
+# Security: uid/gid 65532, runAsNonRoot, readOnlyRootFilesystem — all writable
+# paths (/tmp, /app/models, /var/lib/vsr) are emptyDir. SCC `nonroot-v2` is
+# granted in rbac.yaml. In connected mode the first start downloads Vela from
+# Hugging Face (~2GB), hence the generous startupProbe; an optional
+# `hf-token-secret` (key `token`) raises the HF rate limit. Air-gap mirroring of
+# the decision model is covered in docs/air-gap.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-router
+  namespace: smart-router
+  labels:
+    app.kubernetes.io/part-of: pde-openshift-reference
+    app.kubernetes.io/name: smart-router
+spec:
+  replicas: 1
+  # Recreate: a single pod owns the runtime-config ConfigMap writes; avoid two
+  # pods racing to patch it during a rollout.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: smart-router
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: smart-router
+        app.kubernetes.io/part-of: pde-openshift-reference
+    spec:
+      serviceAccountName: smart-router
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: smart-router
+          image: ghcr.io/vllm-project/semantic-router/vllm-sr:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - -gateway=standalone
+            - -listener-address=0.0.0.0
+            - --secure=false
+          env:
+            # The router reads AND persists its config to this ConfigMap.
+            - name: VLLM_SR_K8S_CONFIGMAP_NAME
+              value: smart-router-config
+            - name: VLLM_SR_K8S_CONFIGMAP_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: VLLM_SR_CONFIG_BACKUP_DIR
+              value: /tmp/vllm-sr/config-history
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # readOnlyRootFilesystem: redirect all caches/home to writable dirs.
+            - name: HOME
+              value: /tmp
+            - name: TMPDIR
+              value: /tmp
+            - name: HF_HOME
+              value: /app/models/.cache/huggingface
+            # Optional — raises the HF download rate limit (connected mode only).
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token-secret
+                  key: token
+                  optional: true
+            - name: HUGGINGFACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token-secret
+                  key: token
+                  optional: true
+          ports:
+            - containerPort: 8899
+              name: http-8899
+              protocol: TCP
+            - containerPort: 9190
+              name: metrics
+              protocol: TCP
+            - containerPort: 8080
+              name: classify-api
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: http-8899
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 180   # ~30 min for the first Vela download
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http-8899
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http-8899
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "2"
+              memory: 6Gi
+            limits:
+              cpu: "4"
+              memory: 12Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: runtime-tmp
+              mountPath: /tmp
+            - name: config-volume
+              mountPath: /app/config/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: models-volume
+              mountPath: /app/models
+            - name: router-data
+              mountPath: /var/lib/vsr
+      volumes:
+        - name: runtime-tmp
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: smart-router-config
+        - name: models-volume
+          emptyDir: {}
+        - name: router-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smart-router
+  namespace: smart-router
+  labels:
+    app.kubernetes.io/part-of: pde-openshift-reference
+    app.kubernetes.io/name: smart-router
+spec:
+  selector:
+    app.kubernetes.io/name: smart-router
+  ports:
+    - name: http-8899
+      port: 8899
+      targetPort: http-8899
+      protocol: TCP
+    - name: metrics
+      port: 9190
+      targetPort: metrics
+      protocol: TCP

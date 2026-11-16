@@ -10,6 +10,7 @@ on OpenShift + OpenShift AI (RHOAI)**. The same manifests run in two modes:
 |---|---|---|
 | Images | ghcr + internal registry | **internal registry only** (oc‑mirror) |
 | Model serving | RHOAI (in‑cluster) **+** optional AWS Bedrock | **RHOAI only** (in‑cluster vLLM) |
+| AI routing | **Smart Router** front door → local + optional Bedrock burst | **Smart Router** → local only |
 | Identity | Keycloak (RHBK) | Keycloak (RHBK), in‑cluster |
 | SCM | in‑cluster Git (**Gitea**) | in‑cluster Git (**Gitea**) |
 | Workspace egress | allowed | **default‑deny** (NetworkPolicy) |
@@ -20,7 +21,9 @@ on OpenShift + OpenShift AI (RHOAI)**. The same manifests run in two modes:
 > → `task ai-provider` produced all 11 Argo apps Synced/Healthy, Keycloak SSO into
 > Coder and Gitea, both templates building workspaces, and Claude Code / Codex /
 > Coder Agents working through the AI Gateway (in‑cluster vLLM + Bedrock).
-> **Not yet validated live:** `MODE=airgap` (see gaps in
+> **Not yet validated live:** the `smart-router` app on the target cluster (D10 —
+> folded in from the RH Summit build, where the router + routing were validated),
+> `MODE=airgap` (see gaps in
 > [`docs/air-gap.md`](docs/air-gap.md)), `task reset`, observability (D8 —
 > placeholder only), diagrams. Locked decisions:
 > [`docs/decisions.md`](docs/decisions.md).
@@ -37,6 +40,10 @@ on OpenShift + OpenShift AI (RHOAI)**. The same manifests run in two modes:
 - **Coder Agents demoed in‑product**; two workspace templates (the agent template
   installs Claude Code + Codex via Coder registry modules at workspace start,
   routed through the AI Gateway); minimal observability (planned). (D6–D8)
+- **Smart Router** (vLLM Semantic Router) is the AI Gateway's OpenAI‑compatible
+  front door: a small CPU decision model classifies every request and routes it
+  (sovereign base → the local model; optional connected‑mode burst to Bedrock),
+  with all traffic captured in the gateway's session logs. (D10)
 
 ## Quickstart
 This repo uses [go-task](https://taskfile.dev) (`task`) as its task runner — install it via https://taskfile.dev/installation/.
@@ -71,7 +78,7 @@ images/      workspace image builds + internal-registry mirror helper
 - [`docs/working-implementation-guide.md`](docs/working-implementation-guide.md) — the
   step‑by‑step path the live environment was built on, driven from Coder Agents.
 - [`docs/air-gap.md`](docs/air-gap.md) — disconnected install, mirroring, egress‑deny.
-- [`docs/decisions.md`](docs/decisions.md) — the ratified ADRs (D1–D9).
+- [`docs/decisions.md`](docs/decisions.md) — the ratified ADRs (D1–D10).
 
 _Lineage: distilled from the RH Summit 2026 demo build, keeping only the proven
 pieces (Invent & Simplify)._

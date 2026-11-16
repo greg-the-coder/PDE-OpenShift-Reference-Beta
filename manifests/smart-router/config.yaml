@@ -1,0 +1,211 @@
+# Smart Router config (vLLM Semantic Router v0.5) — the OpenAI-compatible front
+# door for Coder's AI Gateway (ADR D10).
+#
+# SOVEREIGN BASE: every route resolves to the single in-cluster model `local`
+# (the RHOAI Qwen2.5-7B predictor). The full signal/decision framework is kept
+# intact — image / tools / confidentiality / task / difficulty are all still
+# classified — but in the air-gap-clean base every decision points at `local`.
+# A connected-mode overlay (docs/decisions.md D10, manifests/smart-router/README.md)
+# adds Bedrock frontier/vision backends and repoints the burst decisions at them.
+#
+# The Vela-2.0-0.8B decision model runs on CPU (device: cpu) so the router needs
+# no GPU — it coexists with the single-A10G predictor. GPU time-slicing for the
+# decision model is an optional perf tune (ADR D10), not the base.
+#
+# The router persists runtime config edits back to THIS ConfigMap (see
+# VLLM_SR_K8S_CONFIGMAP_* in deployment.yaml), so rbac.yaml grants it
+# get/update/patch on `smart-router-config`.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smart-router-config
+  namespace: smart-router
+  labels:
+    app.kubernetes.io/part-of: pde-openshift-reference
+    app.kubernetes.io/name: smart-router
+data:
+  config.yaml: |
+    version: v0.5
+    listeners:
+      - name: http-8899
+        address: 0.0.0.0
+        port: 8899
+        timeout: 300s
+    providers:
+      defaults:
+        model: local
+        reasoning_effort: medium
+      models:
+        # The one sovereign model: the RHOAI vLLM Qwen2.5-7B predictor Service
+        # (manifests/model-serving). provider: vllm is a plain OpenAI-compatible
+        # passthrough. provider_model_id is the runtime's --served-model-name;
+        # context matches the ServingRuntime --max-model-len (16384, ADR D4).
+        # The predictor Service is headless, so target the pod port :8080
+        # directly (not a ClusterIP :80).
+        - name: local
+          provider_model_id: qwen2.5-7b-instruct
+          api_format: chat_completions
+          context_window_size: 16384
+          external_model_ids:
+            openai: local
+          backend_refs:
+            - name: primary
+              provider: vllm
+              endpoint: qwen25-7b-predictor.rhoai-serving.svc:8080
+              protocol: http
+              weight: 100
+    global:
+      services:
+        # Responses API — required by the Codex CLI (wire_api = "responses").
+        # Implemented in-router over the chat-completions backend; memory store.
+        response_api:
+          enabled: true
+          store_backend: memory
+          ttl_seconds: 86400
+          max_responses: 1000
+      model_catalog:
+        deployments:
+          primary:
+            provider: model_runtime
+            artifact: vllm-sr/Vela-2.0-0.8B
+            device: cpu
+        system:
+          decision_model:
+            deployment: primary
+      stores:
+        response_cache:
+          backend_type: "memory"
+          max_entries: 1000
+          ttl_seconds: 3600
+          eviction_policy: "fifo"
+    recipes:
+      - name: default
+        strategy: priority
+        signals:
+          input_modality:
+            - name: has_image
+              description: The request contains at least one image.
+              modality: image
+          conversation:
+            - name: has_tools
+              description: The request declares at least one tool (agentic harness).
+              feature:
+                type: exists
+                source:
+                  type: tool_definition
+          systemone:
+            - name: confidential
+              description: The request shares or concerns private material, or asks to keep the work local.
+              question:
+                type: noul
+                instructions: Does the request share or concern private material, such as personal data, private source code, internal or confidential documents, or ask that it stay local, on-premises or out of the cloud?
+              predicate:
+                gte: 0.5
+            - name: task
+              description: The field the request belongs to.
+              question:
+                type: choice
+                instructions: Which field does this request belong to?
+                choices:
+                  - key: code
+                    description: "Software: writing, debugging, refactoring or designing code and software systems"
+                  - key: math_science
+                    description: Mathematics, calculations, physics, chemistry, biology or scientific research
+                  - key: general
+                    description: "Anything else: general knowledge, everyday questions, writing or personal topics"
+              predicate:
+                gte: 0.4
+            - name: difficulty
+              description: How much reasoning a strong expert needs, from 0 (none) to 4 (research level).
+              question:
+                type: score
+                instructions: How much reasoning does a strong expert need to answer this request well?
+                levels:
+                  - Answer immediately, with no thinking
+                  - A little thought, one or two simple steps
+                  - Multi-step reasoning or a careful check
+                  - Deep expert reasoning on a hard problem
+                  - Research-level work on an open or frontier problem
+              predicate:
+                gte: 1.75
+        # SOVEREIGN BASE: the signals above are fully evaluated, but every
+        # decision resolves to `local`. The connected-mode overlay (D10) swaps
+        # the modelRefs on multimodal/advanced_reasoning to Bedrock burst tiers.
+        decisions:
+          - name: multimodal
+            description: "Image-bearing requests. Base: local (text-only). Overlay: Qwen3-VL on Bedrock."
+            priority: 400
+            rules:
+              operator: AND
+              on_unknown: no_match
+              conditions:
+                - type: input_modality
+                  name: has_image
+            modelRefs:
+              - model: local
+                use_reasoning: false
+          - name: privacy_local
+            description: Private/confidential material stays on-cluster (sovereign).
+            priority: 320
+            rules:
+              operator: AND
+              on_unknown: no_match
+              conditions:
+                - type: systemone
+                  name: confidential
+            modelRefs:
+              - model: local
+                use_reasoning: false
+          - name: agentic_tools
+            description: "Tool-bearing (agentic) requests — e.g. all Coder Agent traffic — stay local."
+            priority: 300
+            rules:
+              operator: AND
+              on_unknown: no_match
+              conditions:
+                - type: conversation
+                  name: has_tools
+            modelRefs:
+              - model: local
+                use_reasoning: false
+          - name: code_route
+            description: "Any coding work stays on the local model."
+            priority: 260
+            rules:
+              operator: AND
+              on_unknown: no_match
+              conditions:
+                - type: systemone
+                  name: task
+                  label: code
+            modelRefs:
+              - model: local
+                use_reasoning: false
+          - name: advanced_reasoning
+            description: "Hard non-code reasoning. Base: local. Overlay: burst to Bedrock frontier."
+            priority: 190
+            rules:
+              operator: AND
+              on_unknown: no_match
+              conditions:
+                - type: systemone
+                  name: difficulty
+                  predicate:
+                    gte: 1.75
+                - operator: NOT
+                  conditions:
+                    - type: systemone
+                      name: task
+                      label: code
+            modelRefs:
+              - model: local
+                use_reasoning: false
+          - name: default_local
+            description: Everything else stays on the local model.
+            priority: 80
+            modelRefs:
+              - model: local
+                use_reasoning: false
+    entrypoints:
+      - model_names: ["vllm-sr/auto"]
+        recipe: default

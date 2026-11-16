@@ -1,0 +1,33 @@
+# Smart Router (vLLM Semantic Router) — the intelligent OpenAI-compatible front
+# door for Coder's AI Gateway. Classifies each request with an on-CPU decision
+# model and routes it; the sovereign base sends everything to the in-cluster
+# RHOAI predictor (ADR D10). Synced after model-serving (wave 2) so the
+# predictor Service it targets already exists.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: smart-router
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/coder/PDE-OpenShift-Reference-Beta.git
+    targetRevision: main
+    path: manifests/smart-router
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: smart-router
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 8
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
