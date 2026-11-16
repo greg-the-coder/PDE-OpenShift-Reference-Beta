@@ -3,7 +3,7 @@
 # =============================================================================
 # workspace-basic + AI CLIs (Claude Code, Codex) routed through the Coder AI
 # Gateway with the owner's session token (providers: `task ai-provider`):
-#     Codex       -> provider `openai`  (in-cluster RHOAI vLLM, Qwen2.5-7B)
+#     Codex       -> provider `openai`  (Smart Router -> in-cluster RHOAI vLLM)
 #     Claude Code -> provider `bedrock` (AWS Bedrock; connected mode only)
 # =============================================================================
 
@@ -153,8 +153,8 @@ data "coder_parameter" "git_repo" {
 locals {
   # The gateway routes by provider name under /api/v2/ai-gateway/<provider>,
   # authenticated with the workspace owner's Coder session token. The OpenAI
-  # provider is wired to the in-cluster vLLM (P4); the Bedrock provider is
-  # connected-mode only.
+  # provider is wired to the Smart Router (D10), which routes to the in-cluster
+  # vLLM; the Bedrock provider is connected-mode only.
   ai_gw_openai    = "${data.coder_workspace.me.access_url}/api/v2/ai-gateway/openai/v1"
   ai_gw_anthropic = "${data.coder_workspace.me.access_url}/api/v2/ai-gateway/bedrock"
 

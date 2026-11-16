@@ -142,13 +142,15 @@ Then delete the NS delegation record for `base_domain` from the **parent** zone
 
 ## Acceptance (definition of done — P7)
 Fresh account → steps 0–4 → SSO‑gated Coder, a `workspace-basic` from the
-workspace image, a `workspace-agent` whose AI CLI answers from the
-in‑cluster RHOAI model; `task deploy MODE=airgap` denies workspace egress yet the
-agent still answers in‑cluster; `task reset` returns to clean. No hand‑run
-scripts; no code↔live drift.
+workspace image, a `workspace-agent` whose AI CLI answers — via the Smart Router
+(D10) — from the in‑cluster RHOAI model; `task deploy MODE=airgap` denies
+workspace egress yet the agent still answers in‑cluster; `task reset` returns to
+clean. No hand‑run scripts; no code↔live drift.
 
 **Status (2026‑11‑10):** connected mode **passed** on a fresh account (OCP 4.21,
 2 AZs): 11/11 Argo apps Synced/Healthy, Keycloak SSO for all personas into Coder
 and Gitea, both templates, Claude Code + Codex + Coder Agents via AI Gateway
-(vLLM and Bedrock). **Pending:** `MODE=airgap` (known gaps in
-[`air-gap.md`](air-gap.md#known-gaps)) and `task reset`.
+(vLLM and Bedrock). **Pending:** the `smart-router` app (D10, folded in after
+this run — it is now the `openai` provider's backend, making 12 apps),
+`MODE=airgap` (known gaps in [`air-gap.md`](air-gap.md#known-gaps)) and
+`task reset`.

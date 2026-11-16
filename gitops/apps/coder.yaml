@@ -14,8 +14,9 @@
 # SCM phase registered (Secret coder/coder-gitea-oauth). Workspaces obtain Gitea
 # tokens for clone/push.
 #
-# AI Gateway: enabled here; the in-cluster vLLM provider is registered via the
-# Coder API by `task ai-provider` (2.39 no longer seeds providers from env).
+# AI Gateway: enabled here; the `openai` provider (the Smart Router, D10) is
+# registered via the Coder API by `task ai-provider` (2.39 no longer seeds
+# providers from env).
 #
 # Required Secrets in `coder` (must exist before pods schedule, else
 # CrashLoopBackOff on env lookup): coder-db-app (CNPG), coder-oidc-client-secret
