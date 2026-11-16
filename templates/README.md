@@ -7,7 +7,7 @@ code-server pre-baked), cloning from the in-cluster Gitea via Coder external aut
 | Template | Purpose |
 |----------|---------|
 | [`workspace-basic`](workspace-basic/) | Browser dev: code-server (pre-baked, offline start) + optional Gitea clone + dotfiles. No AI. |
-| [`workspace-agent`](workspace-agent/) | `basic` + **Claude Code** & **Codex** (installed by pinned registry modules at workspace start) routed through the Coder **AI Gateway** (provider `openai` → in-cluster vLLM Qwen; provider `bedrock` = connected mode). |
+| [`workspace-agent`](workspace-agent/) | `basic` + **Claude Code** & **Codex** (installed by pinned registry modules at workspace start) routed through the Coder **AI Gateway** (provider `openai` → the Smart Router → in-cluster vLLM Qwen; provider `bedrock` = connected mode). |
 
 ## Push a template
 ```bash
@@ -33,4 +33,6 @@ the Coder chart's `workspaceNamespaces` grants its ServiceAccount pod/PVC rights
 
 **Validated:** `terraform validate`, plus a live run (2026-11-10, connected):
 both templates build workspaces, and Codex → vLLM Qwen and Claude Code →
-Bedrock both complete round-trips through the AI Gateway.
+Bedrock both complete round-trips through the AI Gateway. (The Smart Router,
+D10, was folded in afterward as the `openai` provider's backend; the Codex path
+now runs Codex → Smart Router → vLLM Qwen.)

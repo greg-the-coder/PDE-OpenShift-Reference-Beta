@@ -11,11 +11,13 @@ Reference docs: [`deploy.md`](deploy.md) (runbook), [`architecture.md`](architec
 What you end up with:
 - OpenShift 4.21 on AWS (STS/IRSA) across 2 AZs: 3 control-plane, 3 workers and
   1 `g5.2xlarge` GPU node.
-- 11 Argo CD apps, all Synced/Healthy.
+- 12 Argo CD apps, all Synced/Healthy.
 - Keycloak SSO into Coder and Gitea.
 - Both workspace templates.
-- Claude Code, Codex and Coder Agents working through the Coder AI Gateway, to
-  in-cluster vLLM (Qwen2.5-7B) and Bedrock (Claude Haiku/Opus 4.5).
+- Claude Code, Codex and Coder Agents working through the Coder AI Gateway — the
+  `openai` provider is the **Smart Router** (D10), which routes to the in-cluster
+  vLLM (Qwen2.5-7B); Bedrock (Claude Haiku/Opus 4.5) is the connected-mode
+  burst/Anthropic provider.
 
 ---
 
@@ -238,7 +240,7 @@ The order is:
 2. annotate the cert-manager SA (IRSA);
 3. create the GPU MachineSet (`task gpu-node`, derived from the `us-east-1a`
    worker MachineSet);
-4. wait until all 11 apps are Synced/Healthy;
+4. wait until all 12 apps are Synced/Healthy;
 5. annotate the coder SA with the Bedrock role and restart Coder.
 
 On a brand-new deployment, `push-templates` and `ai-provider` **skip
@@ -282,7 +284,7 @@ DEMO_CODER coder licenses list        # must be active; telemetry stays enabled 
 ```bash
 cd ~/PDE-OpenShift-Reference-Beta
 DEMO_CODER task push-templates   # workspace-basic + workspace-agent (image_registry=GHCR, anthropic_model=Haiku 4.5)
-DEMO_CODER task ai-provider      # providers openai (vLLM) + bedrock (IRSA); Agents models Opus 4.5 (default), Haiku 4.5, Qwen
+DEMO_CODER task ai-provider      # providers openai (Smart Router) + bedrock (IRSA); Agents models Opus 4.5 (default), Haiku 4.5, Smart Router (auto)
 ```
 Both commands are idempotent. Re-run `task push-templates` whenever template
 variables change, because a bare `coder templates push` reuses the old variable
@@ -302,12 +304,12 @@ the demo.
 ## Part F: Acceptance checks (what "done" looked like)
 | Check | How |
 |---|---|
-| GitOps | `oc get applications.argoproj.io -n openshift-gitops`: 11 apps + root, all Synced/Healthy |
+| GitOps | `oc get applications.argoproj.io -n openshift-gitops`: 12 apps + root, all Synced/Healthy |
 | Model | `oc get inferenceservice -n rhoai-serving`: `qwen25-7b` Ready on the GPU node |
 | Identity | each persona can log in to Coder and Gitea; Coder shows the correct groups/roles |
-| AI config | Coder → Admin → AI Gateway lists `openai` + `bedrock`; Agents model picker shows Opus 4.5 (default), Haiku 4.5, Qwen |
+| AI config | Coder → Admin → AI Gateway lists `openai` + `bedrock`; Agents model picker shows Opus 4.5 (default), Haiku 4.5, Smart Router (auto) |
 | Workspaces | create `workspace-basic` and `workspace-agent` from the UI; code-server opens; Gitea clone works through external auth |
-| AI round-trip | in `workspace-agent`: **Codex** answers (→ vLLM Qwen) and **Claude Code** answers (→ Bedrock Haiku), with no API-key prompt; a **Coder Agents** chat answers on Opus/Haiku/Qwen |
+| AI round-trip | in `workspace-agent`: **Codex** answers (→ Smart Router → vLLM Qwen) and **Claude Code** answers (→ Bedrock Haiku), with no API-key prompt; a **Coder Agents** chat answers on Opus/Haiku/Smart Router |
 
 Have the agent screenshot each UI check through the Desktop tab, or do them in
 your own browser.

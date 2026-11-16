@@ -13,7 +13,7 @@ sync it. Toggle with `task deploy MODE=airgap` / `task airgap-disable`.
 ## The sovereignty proof
 With the egress policy applied, a workspace cannot reach the public internet,
 yet the AI agent still answers: its traffic goes to the in-cluster Coder AI
-Gateway → RHOAI vLLM (Qwen2.5-7B), all cluster-internal.
+Gateway → Smart Router → RHOAI vLLM (Qwen2.5-7B), all cluster-internal.
 
 ## Model weights offline
 Air-gap can't use `hf://` at serve time. `task mirror` builds/pushes an OCI

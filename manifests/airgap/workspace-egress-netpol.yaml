@@ -7,8 +7,8 @@
 # resolve to cluster IPs) and DNS — but NOT the public internet.
 #
 # This is the demo proof point: the AI agent still answers (traffic to the
-# in-cluster Coder AI Gateway -> RHOAI vLLM) while the workspace itself cannot
-# egress to the internet.
+# in-cluster Coder AI Gateway -> Smart Router -> RHOAI vLLM) while the workspace
+# itself cannot egress to the internet.
 #
 # NOTE (P7): tune the allow-list to the cluster. namespaceSelector matches the
 # default `kubernetes.io/metadata.name` label OpenShift sets on every namespace.
