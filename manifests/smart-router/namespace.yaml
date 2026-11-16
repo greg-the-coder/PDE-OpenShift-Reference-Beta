@@ -1,0 +1,8 @@
+# Namespace for the Smart Router (vLLM Semantic Router) — the intelligent,
+# OpenAI-compatible front door for Coder's AI Gateway (ADR D10).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: smart-router
+  labels:
+    app.kubernetes.io/part-of: pde-openshift-reference

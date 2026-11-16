@@ -6,7 +6,7 @@ CODER_AI_GATEWAY_* provider env vars are ignored), so they are configured
 through the Coder API after `coder login` + license. Run via `task ai-provider`.
 
 Providers (routed by NAME at /api/v2/ai-gateway/<name>):
-  openai   in-cluster vLLM (RHOAI)  -> Codex, always
+  openai   Smart Router (vLLM Semantic Router) -> RHOAI vLLM. Codex, always
   bedrock  AWS Bedrock (Anthropic)  -> Claude Code, only when BEDROCK_ENABLE=1.
            Credentials come from the coder-server pod's IRSA role (coder SA
            annotation, `task coder-irsa`) -- no static keys.
@@ -29,7 +29,8 @@ URL = os.environ["AIP_CODER_URL"].rstrip("/")
 TOKEN = os.environ["AIP_CODER_TOKEN"]
 
 VLLM_BASE_URL = os.environ["VLLM_BASE_URL"]
-VLLM_MODEL = os.environ.get("VLLM_MODEL", "qwen2.5-7b-instruct")
+# The Smart Router entrypoint model (it classifies + routes); not a raw model id.
+VLLM_MODEL = os.environ.get("VLLM_MODEL", "vllm-sr/auto")
 VLLM_CONTEXT_LIMIT = int(os.environ.get("VLLM_CONTEXT_LIMIT", "16384"))
 
 BEDROCK_ENABLE = os.environ.get("BEDROCK_ENABLE", "0") == "1"
@@ -120,11 +121,13 @@ def main():
 
     org = must("GET", "/api/v2/users/me")["organization_ids"][0]
 
-    # vLLM runs without auth in-cluster; the key is a non-secret placeholder.
+    # The Smart Router runs without auth in-cluster; the key is a non-secret
+    # placeholder. It is an OpenAI-compatible endpoint that classifies each
+    # request and routes it (sovereign base: everything -> the RHOAI predictor).
     vllm_id = ensure_provider(
         "openai",
         create={"type": "openai", "name": "openai",
-                "display_name": "In-cluster vLLM (Qwen2.5-7B)", "enabled": True,
+                "display_name": "Smart Router (vLLM Semantic Router)", "enabled": True,
                 "base_url": VLLM_BASE_URL, "api_keys": ["unused-local-vllm"]},
         patch={"enabled": True, "base_url": VLLM_BASE_URL},
     )
@@ -151,8 +154,8 @@ def main():
         ensure_model(org, existing, bedrock_id, BEDROCK_SMALL_FAST_MODEL, "Claude Haiku 4.5",
                      200000, dict(max_output_tokens=64000, **anthropic_opts), False)
     # Hermes tool calling is enabled on the vLLM runtime, so the Agents
-    # tool-calling loop works against Qwen; cap output well under the 16K context.
-    ensure_model(org, existing, vllm_id, VLLM_MODEL, "Qwen2.5 7B Instruct (RHOAI vLLM)",
+    # tool-calling loop works through the router; cap output under the context.
+    ensure_model(org, existing, vllm_id, VLLM_MODEL, "Smart Router (auto)",
                  VLLM_CONTEXT_LIMIT, {"max_output_tokens": 4096}, bedrock_id is None)
 
     print(f"[ai-provider] ok. Gateway routes: {URL}/api/v2/ai-gateway/openai/v1"

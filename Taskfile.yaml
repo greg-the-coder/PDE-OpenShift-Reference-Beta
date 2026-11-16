@@ -13,7 +13,7 @@
 #   task bootstrap                    - operators + Argo root app-of-apps
 #   task gpu-node                     - derive a g5.2xlarge GPU MachineSet
 #   task push-templates               - coder templates push (needs `coder login`)
-#   task ai-provider                  - AI Gateway providers (vLLM [+ Bedrock]) + Coder Agents models (needs `coder login` + license)
+#   task ai-provider                  - AI Gateway providers (Smart Router [+ Bedrock]) + Coder Agents models (needs `coder login` + license)
 #   task coder-irsa                   - annotate the coder SA with CODER_BEDROCK_ROLE_ARN + restart Coder
 #   task creds [KEYCLOAK_NS=<ns>]      - print demo logins (reads live Secrets)
 #   task status | reset | mirror | destroy
@@ -223,11 +223,12 @@ tasks:
         done
 
   ai-provider:
-    desc: Configure AI Gateway providers (vLLM; + Bedrock if Coder has its IRSA role) and Coder Agents models
+    desc: Configure AI Gateway providers (Smart Router; + Bedrock if Coder has its IRSA role) and Coder Agents models
     silent: true
     vars:
-      # Headless predictor Service -> address the vLLM pod port directly.
-      AI_PROVIDER_BASE_URL: '{{.AI_PROVIDER_BASE_URL | default (printf "http://qwen25-7b-predictor.%s.svc:8080/v1" .SERVING_NS)}}'
+      # The Smart Router (vLLM Semantic Router) is the OpenAI-compatible front
+      # door; it routes to the RHOAI predictor (and, in connected mode, bursts).
+      AI_PROVIDER_BASE_URL: '{{.AI_PROVIDER_BASE_URL | default "http://smart-router.smart-router.svc.cluster.local:8899/v1"}}'
     cmds:
       - |
         set -euo pipefail

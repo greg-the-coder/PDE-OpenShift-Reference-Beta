@@ -6,7 +6,7 @@ server by `task ai-provider` (see [`ai-providers/`](../../ai-providers/)).
 
 | CLI | Gateway route | Backend | Default model |
 |-----|---------------|---------|---------------|
-| Codex | `/api/v2/ai-gateway/openai/v1` (provider `openai`) | in-cluster RHOAI vLLM | `qwen2.5-7b-instruct` (`openai_model`) |
+| Codex | `/api/v2/ai-gateway/openai/v1` (provider `openai`) | Smart Router → in-cluster RHOAI vLLM | `vllm-sr/auto` (`openai_model`) |
 | Claude Code | `/api/v2/ai-gateway/bedrock` (provider `bedrock`) | AWS Bedrock via IRSA (connected mode only) | Claude Haiku 4.5 (`anthropic_model`); `/model` picker limited to Haiku 4.5 + Opus 4.5 |
 
 - **Auth:** the workspace owner's Coder session token is exported as

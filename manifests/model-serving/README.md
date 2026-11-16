@@ -12,12 +12,12 @@ namespace (cluster-scoped RHOAI CRs apply cluster-wide).
 | `serving-runtime.yaml` | vLLM `ServingRuntime` (Qwen2.5-7B): 16K ctx, TP-1, Hermes tool calling (D4). |
 | `inference-service.yaml` | `InferenceService` (RawDeployment) — Qwen2.5-7B on 1× A10G via `hf://` storageUri; GPU request + toleration/nodeSelector. |
 
-The model is OpenAI-compatible (chat completions + Responses API); **Coder's AI
-Gateway** routes Agents traffic to the InferenceService predictor through the
-`openai` provider that `task ai-provider` registers via the Coder API
-(`http://qwen25-7b-predictor.rhoai-serving.svc:8080/v1` — the predictor Service
-is headless, so use the pod port). Bedrock (Anthropic, for Claude Code) is an
-optional connected-mode provider configured by the same task — see
+The model is OpenAI-compatible (chat completions + Responses API). It is not
+exposed to Coder directly: the **Smart Router** (`manifests/smart-router`, ADR
+D10) sits in front as the AI Gateway's `openai` provider and routes requests to
+this predictor (`qwen25-7b-predictor.rhoai-serving.svc:8080` — the Service is
+headless, so the pod port is used). Bedrock (Anthropic, for Claude Code) is an
+optional connected-mode provider configured by `task ai-provider` — see
 [`ai-providers/`](../../ai-providers/).
 
 **Infra assumption:** a g5.2xlarge (A10G) GPU MachineSet exists (`task gpu-node`,

@@ -36,12 +36,12 @@ variable "image_registry" {
   default     = "image-registry.openshift-image-registry.svc:5000/coder-workspaces"
 }
 
-# Model Codex requests through the AI Gateway OpenAI provider -> in-cluster
-# vLLM (served-model-name from manifests/model-serving/serving-runtime.yaml).
+# Model Codex requests through the AI Gateway OpenAI provider -> the Smart
+# Router entrypoint (vllm-sr/auto); the router classifies and routes it.
 variable "openai_model" {
   type        = string
-  description = "Model id Codex requests via the AI Gateway OpenAI provider (in-cluster vLLM)."
-  default     = "qwen2.5-7b-instruct"
+  description = "Model id Codex requests via the AI Gateway OpenAI provider (Smart Router entrypoint)."
+  default     = "vllm-sr/auto"
 }
 
 # Model Claude Code requests via the AI Gateway Bedrock provider (connected
@@ -183,7 +183,7 @@ locals {
     daemon_auto_start = false
 
     [model_providers.openai-compat]
-    name = "Coder AI Gateway (in-cluster vLLM)"
+    name = "Coder AI Gateway (Smart Router)"
     base_url = "${local.ai_gw_openai}"
     env_key = "OPENAI_API_KEY"
     wire_api = "responses"

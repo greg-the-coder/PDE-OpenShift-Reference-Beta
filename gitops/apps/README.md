@@ -1,6 +1,6 @@
 # gitops/apps/
 Argo CD `Application`s (app-of-apps, synced by `gitops/bootstrap/root-app.yaml`).
-All in AppProject `default`. 11 apps, by sync-wave:
+All in AppProject `default`. 12 apps, by sync-wave:
 
 | Wave | App | Source |
 |---|---|---|
@@ -13,6 +13,7 @@ All in AppProject `default`. 11 apps, by sync-wave:
 | 2 | `scm` (Gitea) | Helm chart `gitea` (dl.gitea.com/charts) |
 | 2 | `coder-config` (Coder DB + secrets + workspace namespace) | `manifests/coder` |
 | 2 | `model-serving` (RHOAI vLLM Qwen2.5-7B) | `manifests/model-serving` |
+| 3 | `smart-router` (vLLM Semantic Router; AI Gateway front door, D10) | `manifests/smart-router` |
 | 3 | `coder` | Helm chart `coder` 2.39.0 (helm.coder.com/v2) |
 | 3 | `observability` (placeholder, nothing deployed yet; D8) | `manifests/observability` |
 
