@@ -49,6 +49,19 @@ spec:
     enabled: false
   http:
     httpEnabled: true
+  # Only the OpenShift router may reach Keycloak's HTTP port. Every consumer
+  # (browsers, Coder, Gitea, Argo CD, the OpenShift OAuth server) comes in
+  # through the Route, so nothing else in the cluster needs a direct path.
+  # Assumes router pods run in the openshift-ingress namespace on the pod
+  # network (the default LoadBalancerService publishing strategy); with a
+  # HostNetwork IngressController this selector will not match — adjust first.
+  # The management port (probes) keeps the operator's default rule.
+  networkPolicy:
+    enabled: true
+    http:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: openshift-ingress
   additionalOptions:
     - name: proxy-headers
       value: xforwarded
