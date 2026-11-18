@@ -35,3 +35,15 @@ spec:
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
+  # JVM hardening for the operator's own JVM, matching the Keycloak server
+  # setting in manifests/keycloak/keycloak.yaml. OLM injects this into the
+  # operator Deployment. If the operator already sets JDK_JAVA_OPTIONS, merge
+  # the existing value in rather than replacing it:
+  #   oc -n keycloak get deployment -o yaml | grep -A1 JDK_JAVA_OPTIONS
+  # This file is bootstrap-applied (`oc apply -f gitops/operators/`), not synced
+  # by Argo, so re-apply it by hand. Temporary; revisit with the next operator
+  # image update.
+  config:
+    env:
+      - name: JDK_JAVA_OPTIONS
+        value: "-XX:-UseBASE64Intrinsics"
