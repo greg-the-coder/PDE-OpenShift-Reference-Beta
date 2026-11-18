@@ -27,8 +27,8 @@ Overrides (environment variables): `BEDROCK_REGION`, `BEDROCK_MODEL`,
 Notes:
 - The gateway rewrites a model id the Bedrock provider doesn't know to the
   provider's `model` (Opus). Keep the templates' `anthropic_model` /
-  `anthropic_available_models` in line with the models above. In account
-  973294445171, Sonnet 4.5 is denied as "Legacy".
+  `anthropic_available_models` in line with the models above. In the demo's
+  AWS account, Sonnet 4.5 is denied as "Legacy".
 - The Bedrock IAM role is `terraform/` `aws_iam_role.coder_bedrock`
   (`enable_bedrock = true`). It trusts `system:serviceaccount:coder:coder` via
   the cluster OIDC issuer.

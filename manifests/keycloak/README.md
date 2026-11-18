@@ -12,6 +12,7 @@ Synced by the `keycloak` Argo Application (`gitops/apps/keycloak.yaml`) into the
 | `postgres-cluster.yaml` | CNPG Postgres `keycloak-db` (auto-generates `keycloak-db-app` Secret). |
 | `keycloak.yaml` | Keycloak CR (v26 operator): 1 replica, edge-TLS via Route, proxy-headers. |
 | `route.yaml` | OpenShift Route (edge TLS) for `keycloak.apps.cluster.rh-pde.coderdemo.io`. |
+| `networkpolicy.yaml` | Egress allow-list for the Keycloak server pods (Postgres + DNS only). Ingress is narrowed to the router via `spec.networkPolicy` in `keycloak.yaml`. |
 | `realm-secrets.yaml` | ESO `Password` generators (×2) → `keycloak-realm-secrets` (8 keys) + Kubernetes-provider `ClusterSecretStore` `keycloak-realm-kv` for cross-namespace sharing. |
 | `realm-template-configmap.yaml` | Secret-free `KeycloakRealmImport` template (groups, users alice/bob/demoadm, OIDC clients coder/gitea/openshift/grafana/argocd) with `__PLACEHOLDER__` tokens. |
 | `realm-import-job.yaml` | Argo Sync-hook Job: injects generated secrets into the template and applies the realm. |

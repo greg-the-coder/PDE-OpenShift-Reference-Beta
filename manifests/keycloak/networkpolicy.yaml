@@ -1,0 +1,70 @@
+# Egress allow-list for the Keycloak server pods (defense in depth).
+#
+# Keycloak here only needs its Postgres and cluster DNS: the demo realm has no
+# external identity providers, no user federation and no SMTP. Denying all
+# other egress means a compromised Keycloak process cannot open outbound
+# connections to the internet or to other in-cluster services.
+#
+# Ingress is NOT handled here. The operator creates its own NetworkPolicy for
+# the server pods, and NetworkPolicies are additive, so ingress is narrowed
+# through spec.networkPolicy on the Keycloak CR (keycloak.yaml) instead.
+#
+# Scope: only pods the operator labels as Keycloak. The operator, the CNPG
+# database and the realm render Job are deliberately left unrestricted.
+#
+# TEST BEFORE RELYING ON THIS: a wrong rule here stops Keycloak reaching its
+# database and takes SSO down. After sync, check
+#   oc -n keycloak get keycloak keycloak -o jsonpath='{.status.conditions}'
+# and a full login. If you later add an external IdP, LDAP or SMTP to the realm,
+# add a matching egress rule.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-server-egress
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: pde-openshift-reference
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+      app.kubernetes.io/managed-by: keycloak-operator
+  policyTypes:
+    - Egress
+  egress:
+    # Cluster DNS. OpenShift's DNS pods listen on 5353 behind the :53 Service,
+    # and policy is evaluated against the pod port, so allow both.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 5353
+        - protocol: TCP
+          port: 5353
+    # Keycloak's Postgres (CNPG cluster keycloak-db, same namespace).
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: keycloak-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Keycloak-to-Keycloak clustering, for when instances > 1.
+    - to:
+        - podSelector:
+            matchLabels:
+              app: keycloak
+              app.kubernetes.io/managed-by: keycloak-operator
+      ports:
+        - protocol: TCP
+          port: 7800
+        - protocol: TCP
+          port: 57800

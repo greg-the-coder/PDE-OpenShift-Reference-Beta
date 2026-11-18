@@ -49,6 +49,31 @@ spec:
     enabled: false
   http:
     httpEnabled: true
+  # Only the OpenShift router may reach Keycloak's HTTP port. Every consumer
+  # (browsers, Coder, Gitea, Argo CD, the OpenShift OAuth server) comes in
+  # through the Route, so nothing else in the cluster needs a direct path.
+  # Assumes router pods run in the openshift-ingress namespace on the pod
+  # network (the default LoadBalancerService publishing strategy); with a
+  # HostNetwork IngressController this selector will not match — adjust first.
+  # The management port (probes) keeps the operator's default rule.
+  networkPolicy:
+    enabled: true
+    http:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: openshift-ingress
   additionalOptions:
     - name: proxy-headers
       value: xforwarded
+  # JVM hardening: run Base64 on the portable code path instead of the
+  # hardware-accelerated intrinsic. Temporary; revisit when the operator's
+  # default image is next updated. Changing this rolls the Keycloak pod.
+  # Verify on the live JVM, not the env:
+  #   oc exec -n keycloak keycloak-0 -c keycloak -- \
+  #     jcmd io.quarkus.bootstrap.runner.QuarkusEntryPoint VM.flags -all \
+  #     | grep UseBASE64Intrinsics        # expect: UseBASE64Intrinsics = false
+  # If this operator version rejects spec.env, set the same variable under
+  # spec.unsupported.podTemplate.spec.containers[name=keycloak].env instead.
+  env:
+    - name: JAVA_OPTS_APPEND
+      value: "-XX:-UseBASE64Intrinsics"
