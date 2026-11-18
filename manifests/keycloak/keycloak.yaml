@@ -52,3 +52,15 @@ spec:
   additionalOptions:
     - name: proxy-headers
       value: xforwarded
+  # JVM hardening: run Base64 on the portable code path instead of the
+  # hardware-accelerated intrinsic. Temporary; revisit when the operator's
+  # default image is next updated. Changing this rolls the Keycloak pod.
+  # Verify on the live JVM, not the env:
+  #   oc exec -n keycloak keycloak-0 -c keycloak -- \
+  #     jcmd io.quarkus.bootstrap.runner.QuarkusEntryPoint VM.flags -all \
+  #     | grep UseBASE64Intrinsics        # expect: UseBASE64Intrinsics = false
+  # If this operator version rejects spec.env, set the same variable under
+  # spec.unsupported.podTemplate.spec.containers[name=keycloak].env instead.
+  env:
+    - name: JAVA_OPTS_APPEND
+      value: "-XX:-UseBASE64Intrinsics"
